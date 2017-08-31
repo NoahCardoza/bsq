@@ -1,38 +1,16 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   bit_conv.c                                         :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: nocardoz <nocardoz@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2017/08/30 12:05:54 by nocardoz          #+#    #+#             */
+/*   Updated: 2017/08/30 15:13:31 by nocardoz         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
 
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#define BIT(x) 				(1 << (x))
-#define BIT_SET(y, mask)	(y |= (mask))
-#define BIT_CLEAR(y, mask)	(y &= ~(mask))
-#define BIT_FLIP(y, mask)	(y ^= (mask))
-#define BYTES(a) ((((a) % 8) == 0) ? (a) / 8 : ((a) / 8) + 1)
-#define MIN(a, b) (((a) < (b)) ? a: b)
-#define MAX(a, b) (((b) > (b)) ? a: b)
-
-typedef struct	s_map
-{
-	char	**data;
-	char	i;
-	char	j;
-	int		rows;
-	int		cols;
-	int		maxqlen;
-	int		maxrow;
-	int		maxcol;
-	int		*dp;
-	int		prev;
-	char	*key;
-
-}				t_map;
-
-void	ft_putchar(char c)
-{
-	write(1, &c, 1);
-}
+#include "ft_bsq.h"
 
 void	print_row(t_map *m, char *cur_r)
 {
@@ -45,9 +23,9 @@ void	print_row(t_map *m, char *cur_r)
 		if (m->maxqlen
 				&& m->i >= m->maxrow && m->i < m->maxrow + m->maxqlen
 				&& m->j >= m->maxcol && m->j < m->maxcol + m->maxqlen)
-			cur_r[m->j] = 'x';
+			cur_r[m->j] = *(m->key + 2);
 		else
-			(m->data[m->i][m->j / 8] & BIT(pos)) ? (cur_r[m->j] = 'o') : (cur_r[m->j] = '.');
+			(m->data[m->i][m->j / 8] & BIT(pos)) ? (cur_r[m->j] = *(m->key + 1)) : (cur_r[m->j] = '.');
 		(++m->j % 8) == 0 ? pos = 7 : --pos;
 	}
 	cur_r[m->j] = '\n';
@@ -71,17 +49,23 @@ int		*create_dp(t_map *map)
 	return (dp);
 }
 
-void	map_init(t_map *m)
+t_map	*map_new(void)
 {
-	m->rows = 1;
-	m->cols = 10;
-	m->data = malloc(sizeof(char*) * m->rows);
+	t_map *m;
+
+	m = malloc(sizeof(t_map));
+	m->rows = 0;
+	m->cols = 0;
+	m->data = NULL;
 	m->i = 0;
 	m->j = 0;
 	m->maxqlen = 0;
 	m->maxrow = 0;
 	m->maxcol = 0;
 	m->dp = create_dp(m);
+	m->key = NULL;
+
+	return (m);
 }
 
 void	max_square(t_map *m, char *line)
@@ -91,7 +75,7 @@ void	max_square(t_map *m, char *line)
 	if (m->i > 0 && m->j > 0)
 	{
 		temp = m->dp[m->j];
-		if (m->data[m->i - 1][m->j - 1] == 'o')
+		if (m->data[m->i - 1][m->j - 1] == *(m->key + 1))
 		{
 			if (m->maxqlen < (m->dp[m->j] = MIN(MIN(m->dp[m->j - 1], m->prev), m->dp[m->j]) + 1))
 			{
@@ -101,10 +85,11 @@ void	max_square(t_map *m, char *line)
 			}
 		}
 		else
+		printf("%s\n", m->key);
 			m->dp[m->j] = 0;
 			m->prev = temp;
 	}
-	else if (line[m->j] == '.' && m->maxqlen == 0)
+	else if (line[m->j] == *m->key && m->maxqlen == 0)
 	{	
 		m->maxqlen = 1;
 		m->maxcol = m->j;
@@ -112,34 +97,30 @@ void	max_square(t_map *m, char *line)
 }
 
 
-void	set_row(t_map *m, char *line)
+int		set_row(t_map *m, char *line)
 {
 	int		pos;
 
 	m->data[m->i] = malloc(sizeof(char) * BYTES(m->cols));	
 	printf("%d\n", BYTES(m->cols));
+	printf("%s\n", line);
 	pos = 7;
 	while (m->j < m->cols)
 	{
-		max_square(m, line);
-		if (line[m->j++] == 'o')
+		printf("{%s}[%c]\n", m->key, line[m->j]);
+		if (index_of(line[m->j], m->key) == -1)
+		{
+			printf("EROR 5 {%s}[%c] => %s\n", m->key, line[m->j], (line + m->j));
+			return (0);
+		}
+		max_square(m, line);	
+		if (line[m->j++] == *(m->key + 1))
 			BIT_SET(m->data[m->i][(m->j - 1) / 8], BIT(pos));
 		(m->j % 8) == 0 ? pos = 7 : --pos;
+
 	}
+	printf("\n");
 	m->j = 0;
 	m->i++;
-}
-
-int		main(void)
-{
-	t_map *m;
-	char	buf[11] = "o.o....o..";
-	printf("%s\n", buf);
-	m = malloc(sizeof(t_map));
-	map_init(m);
-	set_row(m, buf);
-	m->i = 0;
-	print_row(m, buf);
-	printf("%d\n%d\n%d\n", m->maxqlen, m->maxrow, m->maxcol);
-	return (0);
+	return (1);
 }
